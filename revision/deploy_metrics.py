@@ -16,6 +16,15 @@ from common import IMG_SIZE, ROOT, make_model
 RESULTS = os.path.join(ROOT, "outputs", "deployment_metrics.csv")
 
 
+def flops_reference(model, x_t):
+    """FLOPs as counted by PyTorch's official FlopCounterMode (authoritative)."""
+    from torch.utils.flop_counter import FlopCounterMode
+
+    with FlopCounterMode(display=False) as fcm:
+        model(x_t)
+    return fcm.get_total_flops()
+
+
 def flops_forward(model, x_t):
     """Multiply-accumulate FLOPs (2*MACs) summed over Conv2d/Linear layers."""
     total = 0
@@ -67,7 +76,12 @@ def main():
         model, channels, _ = make_model(name)
         model.eval()
         params = sum(p.numel() for p in model.parameters())
-        flops = flops_forward(model, torch.randn(1, channels, IMG_SIZE, IMG_SIZE))
+        x = torch.randn(1, channels, IMG_SIZE, IMG_SIZE)
+        flops = flops_forward(model, x)
+        flops_ref = flops_reference(model, x)
+        # grouped-conv handling is validated against PyTorch's official counter
+        if abs(flops_ref - flops) / flops > 0.01:
+            raise RuntimeError(f"{name}: manual FLOPs {flops} != official {flops_ref}")
         size_mb = params * 4 / 1e6  # fp32
         mps = time_infer_mps(model, channels) if has_mps else float("nan")
         cpu = time_inference(model, torch.randn(1, channels, IMG_SIZE, IMG_SIZE),
@@ -77,7 +91,8 @@ def main():
             "size_MB_fp32": size_mb, "latency_mps_ms": mps, "latency_cpu_ms": cpu,
         })
         print(f"{name:<20} params={params/1e6:6.2f}M flops={flops/1e6:9.1f}M "
-              f"size={size_mb:6.1f}MB mps={mps:7.2f}ms cpu={cpu:7.2f}ms")
+              f"(official {flops_ref/1e6:9.1f}M, ok) size={size_mb:6.1f}MB "
+              f"mps={mps:7.2f}ms cpu={cpu:7.2f}ms")
 
     os.makedirs(os.path.dirname(RESULTS), exist_ok=True)
     import csv
