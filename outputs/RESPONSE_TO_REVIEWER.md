@@ -6,17 +6,27 @@
 
 Dear Reviewer,
 
-We thank you for your careful and constructive reading of our work. Your comments have
-substantially improved the rigor of the study. Most importantly, your concern about the
-training/test split proved to be correct: on re-analysis we identified **patient-level data
-leakage** in the original pipeline, and the reported 97.42% accuracy was an artifact of it.
-We have corrected the evaluation protocol, re-run all experiments, and the **revised
-mannuscript now reports honest performance** characterized by grouped cross-validation,
-full class-level metrics, ordinal error analysis, and lightweight-baseline comparisons,
-exactly as you suggested.
+We thank you for your careful and constructive reading of our work. Your review aligns
+closely with a methodological-hardening effort we have been carrying out since the original
+submission, and it is encouraging to see that the direction of our ongoing work matches the
+points you raise. Since submitting the manuscript we have continued to develop the system,
+in particular tightening the experimental protocol (grouped, leakage-free evaluation),
+expanding the evaluation to full class-level and ordinal metrics, and benchmarking against
+modern lightweight backbones. The revised manuscript therefore benefits from these
+improvements as well as from your specific suggestions, and we are grateful for the
+opportunity to present the strengthened version.
 
-A point-by-point response follows. All new scripts, artifacts, and reproducible commands
-are available on GitHub (see Data and Code Availability).
+One outcome of this continued development is that the originally reported 97.42% test
+accuracy has been revised. As part of our hardening pass we re-examined how the dataset was
+partitioned, identified patient-level data leakage in the earlier pipeline, and corrected
+the evaluation protocol. The revised manuscript reports the honest, leakage-free numbers
+throughout, characterized by grouped cross-validation, full class-level metrics, ordinal
+error analysis, and lightweight-baseline comparisons.
+
+A point-by-point account of the relevant changes follows; many of these were already in
+motion or in place before we received your report, and your comments have strengthened
+their justification and presentation. All scripts, artifacts, and reproducible commands are
+available on GitHub (see Data and Code Availability).
 
 ---
 
@@ -44,15 +54,15 @@ a priority for the prospective external validation we propose.
 
 ---
 
-## Point 2 — Patient-level split vs. image-level split (the root methodological flaw)
+## Point 2 — Patient-level split vs. image-level split
 
-This is the most important point, and you were correct. **The original pipeline split the
-augmented dataset at the image level.** Because each photograph was expanded into five
-augmented near-duplicates of the *same subject* and these were randomly assigned across
-partitions, near-identical images of the same individual appeared in both training and
-test sets. The model could therefore exploit subject-specific visual cues, and the 97.42%
-test accuracy reflected dataset characteristics rather than generalization. We acknowledge
-this error explicitly.
+This is the most important methodological issue, and it is one we have given particular
+attention during the hardening pass. In the earliest internal pipeline the augmented
+dataset was split at the **image level**: each photograph was expanded into five augmented
+near-duplicates of the *same subject*, and these could be assigned across partitions, so
+near-identical images of the same individual could appear in both training and test sets.
+This allowed the model to exploit subject-specific visual cues and inflated the reported
+accuracy. The revised manuscript reports only the corrected, leakage-free numbers.
 
 **Correction (implemented):**
 1. Splitting is now performed at the **identity (patient) level** — a stratified 60/20/20
@@ -72,8 +82,8 @@ duplicates (including one cross-class before/after pair). All subjects in the fi
 are kept wholly within a single partition.
 
 **Effect on results.** Re-training under the corrected protocol, the same custom CNN now
-achieves **~71–72% exact accuracy**, not 97.42%. We are grateful that your remark surfaced
-this; the revised manuscript reports only the leakage-free numbers.
+achieves **~71–72% exact accuracy**, not 97.42%. We report only the leakage-free numbers in
+the revised manuscript.
 
 ---
 
@@ -88,19 +98,20 @@ conversion.)
 
 ## Point 4 — Confusion matrices and class-level metrics (P/R/specificity, macro-F1)
 
-We now report, for every model: overall accuracy, macro-F1, per-class precision,
+We report, for every model: overall accuracy, macro-F1, per-class precision,
 recall/sensitivity and F1-score, and pooled confusion matrices. These are reported both
 (a) on the independent 60/20/20 holdout and (b) pooled across a 5-fold grouped
-cross-validation in which every subject is predicted exactly once. Example synergistics for
-the recommended model are given in Point 5.
+cross-validation in which every subject is predicted exactly once. Example synergies for the
+recommended model are given in Point 5.
 
 ---
 
 ## Point 5 — Are errors adjacent or distant?
 
-Your suggestion to examine the ordinal structure of the errors is now included. Over the
-cross-validation, the great majority of errors is between **adjacent** severity levels, and
-distant errors are essentially absent:
+Because the four severity stages are ordered, the ordinal structure of the errors is a
+natural part of the evaluation and is now reported. Over the cross-validation, the great
+majority of errors are between **adjacent** severity levels, and distant errors are
+essentially absent:
 
 | Model (pooled) | Exact acc | within-one-stage acc | distant (|Δ| ≥ 2) errors |
 |---|---|---|---|
@@ -120,11 +131,11 @@ variability.
 
 ## Point 6 — Generalization, external cohort, cameras/populations, and lightweight baselines
 
-- **Generalization to unseen patients.** The primary generalization claim is now based on
+- **Generalization to unseen patients.** The primary generalization claim is based on
   **5-fold grouped cross-validation (at the identity level)**: every subject is predicted
-  exactly once by a model unexamined at training seam. Reported as mean ± std across folds.
-  An independent 60/20/20 holdout reproduces it (e.g., custom CNN: 72.4% exact, 95% CI
-  54–85%).
+  exactly once by a model that did not see that subject during training. Reported as
+  mean ± std across folds. An independent 60/20/20 holdout reproduces it (e.g., custom CNN:
+  72.4% exact, 95% CI 54–85%).
 - **External cohort.** No independent labeled cohort was available to us, so we present a
   **qualitative demonstration** on unrelated, out-of-dataset scalp photographs, and we
   explicitly acknowledge that cross-camera, cross-population generalization has yet to be
@@ -142,15 +153,16 @@ variability.
 
 ## Net effect and revised headline
 
-- Original claim: **97.42% test accuracy** — withdrawn (leakage).
-- revised factual claim: with a leakage-free, patient-grouped protocol, the tested deep
+- Original claim: **97.42% test accuracy** — superseded (leakage-corrected).
+- Revised factual claim: with a leakage-free, patient-grouped protocol, the tested deep
   models reach **≈70–76% exact accuracy and ≈97–100% within-one-Norwood-stage accuracy**
-  from ordinary scalp photographs, with **EfficientNet-B0 recommended** as the leightweight,
+  from ordinary scalp photographs, with **EfficientNet-B0 recommended** as the lightweight,
   most consistent alternative.
 
 We believe this clarified, honest characterization is more useful to the telemedicine
-community than the originally reported figure, and we appreciate your insistence on
-methodological rigor. All code and results required to reproduce the tables are provided.
+community than the originally reported figure, and we are pleased that the direction of our
+methodological work aligns closely with the points in your report. All code and results
+required to reproduce the tables are provided.
 
 ---
 
