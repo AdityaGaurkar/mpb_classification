@@ -24,8 +24,10 @@ def flops_forward(model, x_t):
         nonlocal total
         if isinstance(module, torch.nn.Conv2d):
             ow, oh = out.shape[-2:]
+            # A grouped conv does in_channels/groups input channels per filter,
+            # so MACs scale with out_channels/groups (not out_channels).
             total += 2 * module.kernel_size[0] * module.kernel_size[1] \
-                * module.in_channels * module.out_channels * ow * oh
+                * module.in_channels * module.out_channels * ow * oh / module.groups
         elif isinstance(module, torch.nn.Linear):
             total += 2 * module.in_features * module.out_features
 
